@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # --- SINGLE POSTGRES BACKBONE FOR MASTER AND SECONDARIES ---
+  db-cluster:
+    image: docker.io/postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: dhis
+      POSTGRES_PASSWORD: dhis2_test_password
+      POSTGRES_DB: dhis2_master
+    ports:
+      - "5432:5432"
+    volumes:
+      - cluster_db_data:/var/lib/postgresql/data
+    entrypoint: >
+      bash -c "
+      echo 'CREATE DATABASE dhis2_sec1;' > /docker-entrypoint-initdb.d/init.sql;
+      echo 'CREATE DATABASE dhis2_sec2;' >> /docker-entrypoint-initdb.d/init.sql;
+      exec /usr/local/bin/docker-entrypoint.sh postgres
+      "
+
+  # --- DHIS2 MASTER INSTANCE ---
+  dhis2-master:
+    image: docker.io/dhis2/core:2.41.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./master_config/dhis.conf:/opt/dhis2/dhis.conf:ro,z
+    depends_on:
+      - db-cluster
+
+  # --- DHIS2 SECONDARY INSTANCE 1 ---
+  dhis2-sec1:
+    image: docker.io/dhis2/core:2.41.0
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./sec1_config/dhis.conf:/opt/dhis2/dhis.conf:ro,z
+    depends_on:
+      - db-cluster
+
+  # --- DHIS2 SECONDARY INSTANCE 2 ---
+  dhis2-sec2:
+    image: docker.io/dhis2/core:2.41.0
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./sec2_config/dhis.conf:/opt/dhis2/dhis.conf:ro,z
+    depends_on:
+      - db-cluster
+
+volumes:
+  cluster_db_data:
+
